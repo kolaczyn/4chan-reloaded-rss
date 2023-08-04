@@ -69,7 +69,7 @@ const generateBoardsThreadsXml = async (boardSlug: string) => {
         version: '2.0',
       },
       channel: {
-        title: `/${result}/ - ${result.name}`,
+        title: `/${result.slug}/ - ${result.name}`,
         description: 'Messageboard by kolaczyn',
         link: 'https://4chan.kolaczyn.com', // Change this to your website URL
         lastBuildDate: new Date().toUTCString(),
@@ -190,11 +190,11 @@ const app = express()
 app.get('/sitemap.xml', async (_req, res) => {
   const SITEMAP_CACHE_KEY = 'sitemap.xml'
 
-  const fromCache = appCache.get(SITEMAP_CACHE_KEY)
-  if (fromCache !== undefined) {
-    res.set('Content-Type', 'text/xml')
-    return res.send(fromCache)
-  }
+  // const fromCache = appCache.get(SITEMAP_CACHE_KEY)
+  // if (fromCache !== undefined) {
+  //   res.set('Content-Type', 'text/xml')
+  //   return res.send(fromCache)
+  // }
 
   const sitemap = await generateSitemap()
   appCache.set(SITEMAP_CACHE_KEY, sitemap)
