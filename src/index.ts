@@ -10,6 +10,11 @@ const appCache = new NodeCache({
   checkperiod: 120,
 })
 
+type BoardDto = {
+  name: string
+  slug: string
+}
+
 type BoardsThreadsDto = {
   threads: Thread[]
   name: string
@@ -35,9 +40,19 @@ type ThreadRepliesDto = {
   title: string
 }
 
-const generateBoardXml = async (boardSlug: string) => {
-  console.info('making request for ' + boardSlug)
+const fetchBoardsThreads = async (boardSlug: string) => {
   const result = await axios.get<BoardsThreadsDto>(`${API_URL}/${boardSlug}?sortOrder=creationDate`).catch(_ => null)
+
+  if (!result) {
+    return null
+  }
+
+  return result.data
+}
+
+const generateBoardsThreadsXml = async (boardSlug: string) => {
+  console.info('making request for ' + boardSlug)
+  const result = await fetchBoardsThreads(boardSlug)
 
   if (!result) {
     return null
@@ -54,11 +69,11 @@ const generateBoardXml = async (boardSlug: string) => {
         version: '2.0',
       },
       channel: {
-        title: `/${result.data.slug}/ - ${result.data.name}`,
+        title: `/${result}/ - ${result.name}`,
         description: 'Messageboard by kolaczyn',
         link: 'https://4chan.kolaczyn.com', // Change this to your website URL
         lastBuildDate: new Date().toUTCString(),
-        item: result.data.threads.map(item => ({
+        item: result.threads.map(item => ({
           title: item.message,
           description: 'Reply count: ' + item.repliesCount,
           link: `https://4chan.kolaczyn.com/boards/${boardSlug}/${item.id}`,
@@ -71,11 +86,21 @@ const generateBoardXml = async (boardSlug: string) => {
   return xmlBuilder.buildObject(rssFeed)
 }
 
-const generateThreadXml = async (boardSlug: string, threadId: number) => {
-  console.info(`making request for ${boardSlug} ${threadId}`)
-  const result = await axios.get<ThreadRepliesDto>(`${API_URL}/${boardSlug}/threads/${threadId}`).catch(_ => null)
+const fetchThreadsReplies = async (boardSlug: string, threadId: number) => {
+  const response = await axios.get<ThreadRepliesDto>(`${API_URL}/${boardSlug}/threads/${threadId}`).catch(_ => null)
 
-  if (!result) {
+  if (!response) {
+    return null
+  }
+
+  return response.data
+}
+
+const generateThreadsRepliesXml = async (boardSlug: string, threadId: number) => {
+  console.info(`making request for ${boardSlug} ${threadId}`)
+  const response = await fetchThreadsReplies(boardSlug, threadId)
+
+  if (!response) {
     return null
   }
 
@@ -90,11 +115,11 @@ const generateThreadXml = async (boardSlug: string, threadId: number) => {
         version: '2.0',
       },
       channel: {
-        title: `${result.data.title}/`,
+        title: `${response.title}/`,
         description: 'Messageboard by kolaczyn',
         link: 'https://4chan.kolaczyn.com', // Change this to your website URL
         lastBuildDate: new Date().toUTCString(),
-        item: result.data.replies
+        item: response.replies
           .map(item => ({
             title: item.message,
             link: `https://4chan.kolaczyn.com/boards/${boardSlug}/${threadId}#${item.id}`,
@@ -109,7 +134,74 @@ const generateThreadXml = async (boardSlug: string, threadId: number) => {
   return xmlBuilder.buildObject(rssFeed)
 }
 
+const fetchBoards = async () => {
+  const response = await axios.get<BoardDto[]>(API_URL).catch(_ => null)
+
+  if (!response) {
+    return null
+  }
+
+  return response.data
+}
+
+const getCurrentDate = () => {
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = String(today.getMonth() + 1).padStart(2, '0')
+  const day = String(today.getDate()).padStart(2, '0')
+
+  return `${year}-${month}-${day}`
+}
+
+const generateSitemap = async () => {
+  const boardsResult = await fetchBoards()
+
+  if (!boardsResult) {
+    return null
+  }
+
+  const xmlBuilder = new Builder({
+    xmldec: { version: '1.0', encoding: 'UTF-8' },
+  })
+
+  // the date is in this format: 2023-08-04
+  const currentDate = getCurrentDate()
+
+  const boardsSitemapEntries = boardsResult.map(item => ({
+    loc: `https://4chan.kolaczyn.com/boards/${item.slug}`,
+    lastmod: currentDate,
+    changefreq: 'weekly',
+  }))
+
+  const sitemap = {
+    sitemapindex: {
+      $: {
+        xmlns: 'http://www.sitemaps.org/schemas/sitemap/0.9',
+      },
+      sitemap: boardsSitemapEntries,
+    },
+  }
+
+  return xmlBuilder.buildObject(sitemap)
+}
+
 const app = express()
+
+app.get('/sitemap.xml', async (_req, res) => {
+  const SITEMAP_CACHE_KEY = 'sitemap.xml'
+
+  const fromCache = appCache.get(SITEMAP_CACHE_KEY)
+  if (fromCache !== undefined) {
+    res.set('Content-Type', 'text/xml')
+    return res.send(fromCache)
+  }
+
+  const sitemap = await generateSitemap()
+  appCache.set(SITEMAP_CACHE_KEY, sitemap)
+
+  res.set('Content-Type', 'text/xml')
+  return res.send(sitemap)
+})
 
 app.get('/:board/:threadId?', async (req, res) => {
   const { board, threadId } = req.params
@@ -123,10 +215,10 @@ app.get('/:board/:threadId?', async (req, res) => {
   }
 
   if (threadId) {
-    const xml = await generateThreadXml(board, parseInt(threadId))
+    const xml = await generateThreadsRepliesXml(board, parseInt(threadId))
     appCache.set(key, xml)
   } else {
-    const xml = await generateBoardXml(board)
+    const xml = await generateBoardsThreadsXml(board)
     appCache.set(key, xml)
   }
 
