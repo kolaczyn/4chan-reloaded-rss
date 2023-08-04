@@ -1,7 +1,6 @@
 FROM node:20
 
 WORKDIR /app
-RUN mkdir -p /app/.store
 
 COPY package.json yarn.lock ./
 
@@ -11,4 +10,4 @@ COPY . .
 
 EXPOSE 8080
 
-CMD ["node", "server.js"]
+CMD ["yarn", "dev:run"]
