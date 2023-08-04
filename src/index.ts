@@ -141,7 +141,7 @@ app.get('/:board/:threadId?', async (req, res) => {
   return res.send(xml)
 })
 
-const PORT = process.env.PORT ?? '3000'
+const PORT = process.env.PORT ?? '8080'
 app.listen(PORT, () => {
   console.info(`Server running on port http://localhost:${PORT}`)
 })
