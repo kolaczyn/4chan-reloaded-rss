@@ -10,6 +10,12 @@ const appCache = new NodeCache({
   checkperiod: 120,
 })
 
+type BoardsThreadsDto = {
+  threads: Thread[]
+  name: string
+  slug: string
+}
+
 type Thread = {
   id: number
   message: string
@@ -18,11 +24,20 @@ type Thread = {
   imageUrl: string | null
 }
 
+type ThreadRepliesDto = {
+  createdAt: string | null
+  id: number
+  replies: {
+    id: number
+    message: string
+    createdAt: string | null
+  }[]
+  title: string
+}
+
 const generateBoardXml = async (boardSlug: string) => {
   console.info('making request for ' + boardSlug)
-  const result = await axios
-    .get<{ threads: Thread[]; name: string; slug: string }>(`${API_URL}/${boardSlug}?sortOrder=creationDate`)
-    .catch(_ => null)
+  const result = await axios.get<BoardsThreadsDto>(`${API_URL}/${boardSlug}?sortOrder=creationDate`).catch(_ => null)
 
   if (!result) {
     return null
@@ -56,20 +71,66 @@ const generateBoardXml = async (boardSlug: string) => {
   return xmlBuilder.buildObject(rssFeed)
 }
 
+const generateThreadXml = async (boardSlug: string, threadId: number) => {
+  console.info(`making request for ${boardSlug} ${threadId}`)
+  const result = await axios.get<ThreadRepliesDto>(`${API_URL}/${boardSlug}/threads/${threadId}`).catch(_ => null)
+
+  if (!result) {
+    return null
+  }
+
+  const xmlBuilder = new Builder({
+    xmldec: { version: '1.0', encoding: 'UTF-8' },
+  })
+
+  const rssFeed = {
+    rss: {
+      $: {
+        'xmlns:atom': 'http://www.w3.org/2005/Atom',
+        version: '2.0',
+      },
+      channel: {
+        title: `${result.data.title}/`,
+        description: 'Messageboard by kolaczyn',
+        link: 'https://4chan.kolaczyn.com', // Change this to your website URL
+        lastBuildDate: new Date().toUTCString(),
+        item: result.data.replies
+          .map(item => ({
+            title: item.message,
+            link: `https://4chan.kolaczyn.com/boards/${boardSlug}/${threadId}#${item.id}`,
+            pubDate: new Date(item.createdAt ?? '').toUTCString(),
+          }))
+          .slice()
+          .reverse(),
+      },
+    },
+  }
+
+  return xmlBuilder.buildObject(rssFeed)
+}
+
 const app = express()
 
-app.get('/:board', async (req, res) => {
-  const { board } = req.params
+app.get('/:board/:threadId?', async (req, res) => {
+  const { board, threadId } = req.params
 
-  const fromCache = appCache.get(board)
+  const key = `${board}-${threadId ?? ''}`
+
+  const fromCache = appCache.get(key)
   if (fromCache !== undefined) {
     res.set('Content-Type', 'text/xml')
     return res.send(fromCache)
   }
 
-  const xml = await generateBoardXml(board)
+  if (threadId) {
+    const xml = await generateThreadXml(board, parseInt(threadId))
+    appCache.set(key, xml)
+  } else {
+    const xml = await generateBoardXml(board)
+    appCache.set(key, xml)
+  }
 
-  appCache.set(board, xml)
+  const xml = appCache.get(key)
 
   if (!xml) {
     res.status(404)
