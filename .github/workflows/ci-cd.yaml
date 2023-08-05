@@ -1,4 +1,4 @@
-name: Deploy on VPS
+name: Continuous Integration
 
 on:
   workflow_dispatch:
@@ -7,7 +7,21 @@ on:
       - main
 
 jobs:
-  update:
+  ci:
+    name: Continuous Integration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 20
+      - run: yarn install
+      - run: yarn ci
+
+  cd:
+    name: Continuous Deployment
+    needs: ci
+    if: success()
     runs-on: ubuntu-latest
     steps:
       - uses: appleboy/ssh-action@v1.0.0
