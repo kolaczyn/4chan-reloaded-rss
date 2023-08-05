@@ -40,6 +40,12 @@ type ThreadRepliesDto = {
   title: string
 }
 
+const addCssToXml = (xml: string) =>
+  xml.replace(
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<?xml version="1.0" encoding="UTF-8"?>\n<?xml-stylesheet type="text/css" href="/xml-styles.css"?>'
+  )
+
 const fetchBoardsThreads = async (boardSlug: string) => {
   const result = await axios.get<BoardsThreadsDto>(`${API_URL}/${boardSlug}?sortOrder=creationDate`).catch(_ => null)
 
@@ -83,7 +89,7 @@ const generateBoardsThreadsXml = async (boardSlug: string) => {
     },
   }
 
-  return xmlBuilder.buildObject(rssFeed)
+  return addCssToXml(xmlBuilder.buildObject(rssFeed))
 }
 
 const fetchThreadsReplies = async (boardSlug: string, threadId: number) => {
@@ -131,7 +137,7 @@ const generateThreadsRepliesXml = async (boardSlug: string, threadId: number) =>
     },
   }
 
-  return xmlBuilder.buildObject(rssFeed)
+  return addCssToXml(xmlBuilder.buildObject(rssFeed))
 }
 
 const fetchBoards = async () => {
@@ -187,6 +193,7 @@ const generateSitemap = async () => {
 
 const app = express()
 
+app.use(express.static('public'))
 app.get('/sitemap.xml', async (_req, res) => {
   const SITEMAP_CACHE_KEY = 'sitemap.xml'
 
