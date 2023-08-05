@@ -1,0 +1,21 @@
+name: Deploy on VPS
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: garygrossgarten/github-action-ssh@release
+        with:
+          command: |
+            cd rss
+            git pull
+            make redeploy
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          privateKey: ${{ secrets.PRIVATE_KEY }}
