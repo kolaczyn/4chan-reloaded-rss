@@ -77,7 +77,7 @@ const generateBoardsThreadsXml = async (boardSlug: string) => {
       channel: {
         title: `/${result.slug}/ - ${result.name}`,
         description: 'Messageboard by kolaczyn',
-        link: 'https://4chan.kolaczyn.com', // Change this to your website URL
+        link: `https://4chan.kolaczyn.com/boards/${boardSlug}`,
         lastBuildDate: new Date().toUTCString(),
         item: result.threads.map(item => ({
           title: item.message,
@@ -123,7 +123,7 @@ const generateThreadsRepliesXml = async (boardSlug: string, threadId: number) =>
       channel: {
         title: `${response.title}/`,
         description: 'Messageboard by kolaczyn',
-        link: 'https://4chan.kolaczyn.com', // Change this to your website URL
+        link: `https://4chan.kolaczyn.com/boards/${boardSlug}/${threadId}`, // Change this to your website URL
         lastBuildDate: new Date().toUTCString(),
         item: response.replies
           .map(item => ({
