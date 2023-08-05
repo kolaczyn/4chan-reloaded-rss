@@ -194,6 +194,7 @@ const generateSitemap = async () => {
 const app = express()
 
 app.use(express.static('public'))
+
 app.get('/sitemap.xml', async (_req, res) => {
   const SITEMAP_CACHE_KEY = 'sitemap.xml'
 
